@@ -13,14 +13,16 @@ namespace Substrate
     {
         private static readonly SchemaNodeCompound _schema = new SchemaNodeCompound("")
         {
-            new SchemaNodeScaler("i", TagType.TAG_INT),
+            // TODO!!! This can be both string and int for older versions
+            //new SchemaNodeScaler("i", TagType.TAG_STRING),
             new SchemaNodeScaler("t", TagType.TAG_INT),
             new SchemaNodeScaler("x", TagType.TAG_INT),
             new SchemaNodeScaler("y", TagType.TAG_INT),
             new SchemaNodeScaler("z", TagType.TAG_INT),
         };
 
-        private int _blockId;
+        private string _blockId;
+        private int _blockIdInt;
         private int _ticks;
         private int _x;
         private int _y;
@@ -55,7 +57,7 @@ namespace Substrate
         /// <summary>
         /// Gets or sets the ID (type) of the block that this <see cref="TileTick"/> is associated with.
         /// </summary>
-        public int ID
+        public string ID
         {
             get { return _blockId; }
             set { _blockId = value; }
@@ -164,7 +166,19 @@ namespace Substrate
                 return null;
             }
 
-            _blockId = ctree["i"].ToTagInt();
+            var idNode = ctree["i"];
+
+            if(idNode.IsCastableTo(TagType.TAG_INT))
+            {
+                _blockIdInt = idNode.ToTagInt();
+                _blockId = null;
+            }
+            else
+            {
+                _blockIdInt = -1;
+                _blockId = idNode.ToTagString();
+            }
+
             _ticks = ctree["t"].ToTagInt();
             _x = ctree["x"].ToTagInt();
             _y = ctree["y"].ToTagInt();
@@ -196,7 +210,7 @@ namespace Substrate
         public TagNode BuildTree ()
         {
             TagNodeCompound tree = new TagNodeCompound();
-            tree["i"] = new TagNodeInt(_blockId);
+            tree["i"] = new TagNodeString(_blockId);
             tree["t"] = new TagNodeInt(_ticks);
             tree["x"] = new TagNodeInt(_x);
             tree["y"] = new TagNodeInt(_y);

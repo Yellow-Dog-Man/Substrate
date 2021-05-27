@@ -123,6 +123,24 @@ namespace Substrate
             }
         }
 
+        public string Status
+        {
+            get
+            {
+                if(_chunk == null)
+                    GetChunk();
+
+                return _chunk.Status;
+            }
+            set
+            {
+                if (_chunk == null)
+                    GetChunk();
+
+                _chunk.Status = null;
+            }
+        }
+
         /// <summary>
         /// Forbid direct instantiation of ChunkRef objects
         /// </summary>

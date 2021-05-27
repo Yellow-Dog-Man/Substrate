@@ -32,26 +32,28 @@ namespace Substrate
         public const int JUNGLE_HILLS = 22;
 
         private readonly int _xdim;
+        private readonly int _ydim;
         private readonly int _zdim;
 
-        private IDataArray2 _biomeMap;
+        private IDataArray3 _biomeMap;
 
-        public AnvilBiomeCollection(IDataArray2 biomeMap)
+        public AnvilBiomeCollection(IDataArray3 biomeMap)
         {
             _biomeMap = biomeMap;
 
             _xdim = _biomeMap.XDim;
+            _ydim = _biomeMap.YDim;
             _zdim = _biomeMap.ZDim;
         }
 
-        public int GetBiome(int x, int z)
+        public int GetBiome(int x, int y, int z)
         {
-            return _biomeMap[x, z];
+            return _biomeMap[x, y, z];
         }
 
-        public void SetBiome(int x, int z, int newBiome)
+        public void SetBiome(int x, int y, int z, int newBiome)
         {
-            _biomeMap[x, z] = newBiome;
+            _biomeMap[x, y, z] = newBiome;
         }
 
     }

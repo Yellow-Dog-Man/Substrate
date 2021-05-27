@@ -425,7 +425,7 @@ namespace Substrate
 
                 e.AddHandler(Open);
             }
-            catch (Exception) {
+            catch (Exception ex) {
                 return;
             }
         }

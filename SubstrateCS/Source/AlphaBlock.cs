@@ -220,7 +220,7 @@ namespace Substrate
         {
             _tileTick = new TileTick()
             {
-                ID = _id,
+                ID = BlockTileTicks.ID_To_Name(_id),
             };
         }
 

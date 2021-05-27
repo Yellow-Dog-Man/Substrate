@@ -74,6 +74,12 @@ namespace Substrate
             get { return _cz; }
         }
 
+        public string Status
+        {
+            get { return null; }
+            set { throw new NotSupportedException(); }
+        }
+
         /// <summary>
         /// Gets the collection of all blocks and their data stored in the chunk.
         /// </summary>

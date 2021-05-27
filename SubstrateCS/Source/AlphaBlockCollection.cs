@@ -414,6 +414,15 @@ namespace Substrate
             return c;
         }
 
+        public bool IsEmpty()
+        {
+            for(int i = 0; i < _blocks.Length; i++)
+                if(_blocks[i] != 0)
+                    return false;
+
+            return true;
+        }
+
         #endregion
 
 

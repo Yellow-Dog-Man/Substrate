@@ -41,6 +41,8 @@ namespace Substrate.Core
         /// <remarks>Terrain features include ores, water and lava sources, dungeons, trees, flowers, etc.</remarks>
         bool IsTerrainPopulated { get; set; }
 
+        string Status { get; set; }
+
         void SetLocation (int x, int z);
 
         /// <summary>

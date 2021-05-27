@@ -58,7 +58,7 @@ namespace Substrate.Core
             if (!_tileTickTable.TryGetValue(key, out te)) {
                 TileTick tt = new TileTick()
                 {
-                    ID = _blocks[x, y, z],
+                    ID = ID_To_Name(_blocks[x, y, z]),
                     Ticks = tickValue,
                     X = key.x,
                     Y = key.y,
@@ -95,7 +95,7 @@ namespace Substrate.Core
 
         public void SetTileTick (int x, int y, int z, TileTick te)
         {
-            if (te.ID != _blocks[x, y, z]) {
+            if (te.ID != ID_To_Name(_blocks[x, y, z])) {
                 throw new ArgumentException("The TileTick type is not valid for this block.", "te");
             }
 
@@ -123,7 +123,7 @@ namespace Substrate.Core
         {
             TileTick te = new TileTick()
             {
-                ID = _blocks[x, y, z],
+                ID = ID_To_Name(_blocks[x, y, z]),
             };
 
             BlockKey key = (TranslateCoordinates != null)
@@ -175,5 +175,7 @@ namespace Substrate.Core
                 _tileTickTable[key] = te;
             }
         }
+
+        public static string ID_To_Name(int id) => throw new NotImplementedException();
     }
 }

@@ -14,19 +14,21 @@ namespace Substrate
             new SchemaNodeCompound("Level")
             {
                 new SchemaNodeList("Sections", TagType.TAG_COMPOUND, new SchemaNodeCompound() {
-                    new SchemaNodeArray("Blocks", 4096),
-                    new SchemaNodeArray("Data", 2048),
-                    new SchemaNodeArray("SkyLight", 2048),
-                    new SchemaNodeArray("BlockLight", 2048),
-                    new SchemaNodeScaler("Y", TagType.TAG_BYTE),
+                    new SchemaNodeArray("Blocks", 4096, SchemaOptions.CREATE_ON_MISSING),
+                    new SchemaNodeArray("Data", 2048, SchemaOptions.CREATE_ON_MISSING),
+                    new SchemaNodeArray("SkyLight", 2048, SchemaOptions.CREATE_ON_MISSING),
+                    new SchemaNodeArray("BlockLight", 2048, SchemaOptions.CREATE_ON_MISSING),
+                    new SchemaNodeScaler("Y", TagType.TAG_BYTE, SchemaOptions.CREATE_ON_MISSING),
                     new SchemaNodeArray("Add", 2048, SchemaOptions.OPTIONAL),
                 }),
-                new SchemaNodeArray("Biomes", 256, SchemaOptions.OPTIONAL),
-                new SchemaNodeIntArray("HeightMap", 256),
+                // TODO!!! There's the old 256 vertical only biomes and the new XZY one
+                //new SchemaNodeIntArray("Biomes", 1024, SchemaOptions.OPTIONAL),
+                new SchemaNodeIntArray("HeightMap", 256, SchemaOptions.OPTIONAL),
                 new SchemaNodeList("Entities", TagType.TAG_COMPOUND, SchemaOptions.CREATE_ON_MISSING),
                 new SchemaNodeList("TileEntities", TagType.TAG_COMPOUND, TileEntity.Schema, SchemaOptions.CREATE_ON_MISSING),
                 new SchemaNodeList("TileTicks", TagType.TAG_COMPOUND, TileTick.Schema, SchemaOptions.OPTIONAL),
                 new SchemaNodeScaler("LastUpdate", TagType.TAG_LONG, SchemaOptions.CREATE_ON_MISSING),
+                new SchemaNodeScaler("Status", TagType.TAG_STRING, SchemaOptions.OPTIONAL),
                 new SchemaNodeScaler("xPos", TagType.TAG_INT),
                 new SchemaNodeScaler("zPos", TagType.TAG_INT),
                 new SchemaNodeScaler("TerrainPopulated", TagType.TAG_BYTE, SchemaOptions.CREATE_ON_MISSING),
@@ -42,6 +44,8 @@ namespace Substrate
         private int _cx;
         private int _cz;
 
+        private string _status;
+
         private AnvilSection[] _sections;
 
         private IDataArray3 _blocks;
@@ -50,7 +54,7 @@ namespace Substrate
         private IDataArray3 _skyLight;
 
         private ZXIntArray _heightMap;
-        private ZXByteArray _biomes;
+        private XZYIntArray _biomes;
 
         private TagNodeList _entities;
         private TagNodeList _tileEntities;
@@ -74,6 +78,12 @@ namespace Substrate
         public int Z
         {
             get { return _cz; }
+        }
+
+        public string Status
+        {
+            get { return _status; }
+            set { _status = value; }
         }
         
         public AnvilSection[] Sections
@@ -260,16 +270,40 @@ namespace Substrate
             _skyLight = new CompositeDataArray3(skyLightBA);
             _blockLight = new CompositeDataArray3(blockLightBA);
             
-            _heightMap = new ZXIntArray(XDIM, ZDIM, level["HeightMap"] as TagNodeIntArray);
+            if(level.ContainsKey("HeightMap"))
+                _heightMap = new ZXIntArray(XDIM, ZDIM, level["HeightMap"] as TagNodeIntArray);
 
             if (level.ContainsKey("Biomes"))
-                _biomes = new ZXByteArray(XDIM, ZDIM, level["Biomes"] as TagNodeByteArray);
-            else {
-                level["Biomes"] = new TagNodeByteArray(new byte[256]);
-                _biomes = new ZXByteArray(XDIM, ZDIM, level["Biomes"] as TagNodeByteArray);
-                for (int x = 0; x < XDIM; x++)
-                    for (int z = 0; z < ZDIM; z++)
-                        _biomes[x, z] = BiomeType.Default;
+            {
+                switch(level["Biomes"])
+                {
+                    case TagNodeIntArray intArray:
+                        _biomes = new XZYIntArray(XDIM / 4, YDIM / 4, ZDIM / 4, level["Biomes"] as TagNodeIntArray);
+                        break;
+
+                    case TagNodeByteArray byteArray:
+                        var oldBiomes = new ZXByteArray(XDIM, ZDIM, byteArray);
+
+                        // convert old biome to the new format
+                        // TODO!!! Not fully sure if this conversion is quite correct. Perhaps both formats should be supported instead?
+                        _biomes = new XZYIntArray(XDIM / 4, YDIM / 4, ZDIM / 4, new int[1024]);
+
+                        for (int x = 0; x < XDIM / 4; x++)
+                            for (int y = 0; y < YDIM / 4; y++)
+                                for (int z = 0; z < ZDIM / 4; z++)
+                                    _biomes[x, y, z] = oldBiomes[x * 4, z * 4];
+
+                        break;
+                }                
+            }
+            else
+            {
+                level["Biomes"] = new TagNodeIntArray(new int[1024]);
+                _biomes = new XZYIntArray(XDIM / 4, YDIM / 4, ZDIM / 4, level["Biomes"] as TagNodeIntArray);
+                for (int x = 0; x < XDIM / 4; x++)
+                    for (int y = 0; y < YDIM / 4; y++)
+                        for (int z = 0; z < ZDIM / 4; z++)
+                            _biomes[x, y, z] = BiomeType.Default;
             }
 
             _entities = level["Entities"] as TagNodeList;
@@ -295,6 +329,9 @@ namespace Substrate
                 level["TileTicks"] = new TagNodeList(TagType.TAG_COMPOUND);
                 _tileTicks = level["TileTicks"] as TagNodeList;
             }
+
+            if(level.ContainsKey("Status"))
+                _status = level["Status"].ToTagString();
 
             _cx = level["xPos"].ToTagInt();
             _cz = level["zPos"].ToTagInt();
@@ -403,11 +440,12 @@ namespace Substrate
             TagNodeIntArray heightMap = new TagNodeIntArray(new int[elements2]);
             _heightMap = new ZXIntArray(XDIM, ZDIM, heightMap);
 
-            TagNodeByteArray biomes = new TagNodeByteArray(new byte[elements2]);
-            _biomes = new ZXByteArray(XDIM, ZDIM, biomes);
-            for (int x = 0; x < XDIM; x++)
-                for (int z = 0; z < ZDIM; z++)
-                    _biomes[x, z] = BiomeType.Default;
+            TagNodeIntArray biomes = new TagNodeIntArray(new int[1024]);
+            _biomes = new XZYIntArray(XDIM / 4, YDIM / 4, ZDIM / 4, biomes);
+            for (int x = 0; x < XDIM / 4; x++)
+                for(int y = 0; y < YDIM / 4; y++)
+                    for (int z = 0; z < ZDIM / 4; z++)
+                        _biomes[x, y, z] = BiomeType.Default;
 
             _entities = new TagNodeList(TagType.TAG_COMPOUND);
             _tileEntities = new TagNodeList(TagType.TAG_COMPOUND);
@@ -421,6 +459,7 @@ namespace Substrate
             level.Add("TileEntities", _tileEntities);
             level.Add("TileTicks", _tileTicks);
             level.Add("LastUpdate", new TagNodeLong(Timestamp()));
+            level.Add("Status", new TagNodeString("empty"));
             level.Add("xPos", new TagNodeInt(_cx));
             level.Add("zPos", new TagNodeInt(_cz));
             level.Add("TerrainPopulated", new TagNodeByte());

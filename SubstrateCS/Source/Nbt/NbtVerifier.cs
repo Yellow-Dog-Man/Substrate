@@ -158,47 +158,48 @@ namespace Substrate.Nbt
                 return OnMissingTag(new TagEventArgs(schema.Name));
             }
 
-            SchemaNodeScaler scaler = schema as SchemaNodeScaler;
-            if (scaler != null) {
-                return VerifyScaler(tag, scaler);
+            bool pass;
+
+            switch (schema)
+            {
+                case SchemaNodeScaler scaler:
+                    pass = VerifyScaler(tag, scaler);
+                    break;
+
+                case SchemaNodeString str:
+                    pass = VerifyString(tag, str);
+                    break;
+
+                case SchemaNodeArray array:
+                    pass = VerifyArray(tag, array);
+                    break;
+
+                case SchemaNodeIntArray intarray:
+                    pass = VerifyIntArray(tag, intarray);
+                    break;
+
+                case SchemaNodeLongArray longarray:
+                    pass = VerifyLongArray(tag, longarray);
+                    break;
+
+                case SchemaNodeShortArray shortarray:
+                    pass = VerifyShortArray(tag, shortarray);
+                    break;
+
+                case SchemaNodeList list:
+                    pass = VerifyList(tag, list);
+                    break;
+
+                case SchemaNodeCompound compound:
+                    pass = VerifyCompound(tag, compound);
+                    break;
+
+                default:
+                    pass = OnInvalidTagType(new TagEventArgs(schema.Name, tag));
+                    break;
             }
 
-            SchemaNodeString str = schema as SchemaNodeString;
-            if (str != null) {
-                return VerifyString(tag, str);
-            }
-
-            SchemaNodeArray array = schema as SchemaNodeArray;
-            if (array != null) {
-                return VerifyArray(tag, array);
-            }
-
-            SchemaNodeIntArray intarray = schema as SchemaNodeIntArray;
-            if (intarray != null) {
-                return VerifyIntArray(tag, intarray);
-            }
-
-            SchemaNodeLongArray longarray = schema as SchemaNodeLongArray;
-            if (longarray != null) {
-                return VerifyLongArray(tag, longarray);
-            }
-
-            SchemaNodeShortArray shortarray = schema as SchemaNodeShortArray;
-            if (shortarray != null) {
-                return VerifyShortArray(tag, shortarray);
-            }
-
-            SchemaNodeList list = schema as SchemaNodeList;
-            if (list != null) {
-                return VerifyList(tag, list);
-            }
-
-            SchemaNodeCompound compound = schema as SchemaNodeCompound;
-            if (compound != null) {
-                return VerifyCompound(tag, compound);
-            }
-
-            return OnInvalidTagType(new TagEventArgs(schema.Name, tag));
+            return pass;
         }
 
         private bool VerifyScaler (TagNode tag, SchemaNodeScaler schema)

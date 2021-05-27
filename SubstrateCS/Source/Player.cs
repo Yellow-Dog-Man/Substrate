@@ -124,7 +124,9 @@ namespace Substrate
             new SchemaNodeScaler("DeathTime", TagType.TAG_SHORT),
             new SchemaNodeScaler("Health", TagType.TAG_FLOAT),
             new SchemaNodeScaler("HurtTime", TagType.TAG_SHORT),
-            new SchemaNodeScaler("Dimension", TagType.TAG_INT),
+            // It seems that Dimension has changed from INT to STRING in one of the versions
+            // CUrrently I'm not sure how this should actually be handled properly, so commenting it out for now
+            //new SchemaNodeScaler("Dimension", TagType.TAG_STRING),
             new SchemaNodeList("Inventory", TagType.TAG_COMPOUND, ItemCollection.Schema),
             //new SchemaNodeList("EnderItems", TagType.TAG_COMPOUND, ItemCollection.Schema, SchemaOptions.OPTIONAL),
             new SchemaNodeScaler("World", TagType.TAG_STRING, SchemaOptions.OPTIONAL),
@@ -161,7 +163,9 @@ namespace Substrate
         private float _health;
         private short _hurtTime;
 
-        private int _dimension;
+        private string _dimension;
+        private bool _dimensionIsInt;
+
         private byte _sleeping;
         private short _sleepTimer;
         private int? _spawnX;
@@ -226,7 +230,7 @@ namespace Substrate
         /// <summary>
         /// Gets or sets the dimension that the player is currently in.
         /// </summary>
-        public int Dimension
+        public string Dimension
         {
             get { return _dimension; }
             set { _dimension = value; }
@@ -378,7 +382,7 @@ namespace Substrate
             _abilities = new PlayerAbilities();
 
             // Sane defaults
-            _dimension = 0;
+            _dimension = "minecraft:overworld";
             _sleeping = 0;
             _sleepTimer = 0;
 
@@ -400,6 +404,7 @@ namespace Substrate
             _hurtTime = p._hurtTime;
 
             _dimension = p._dimension;
+            _dimensionIsInt = p._dimensionIsInt;
             _gameType = p._gameType;
             _sleeping = p._sleeping;
             _sleepTimer = p._sleepTimer;
@@ -466,7 +471,40 @@ namespace Substrate
             _health = ctree["Health"].ToTagFloat();
             _hurtTime = ctree["HurtTime"].ToTagShort();
 
-            _dimension = ctree["Dimension"].ToTagInt();
+            if(ctree.TryGetValue("Dimension", out TagNode dimension))
+            {
+                if (dimension.IsCastableTo(TagType.TAG_INT))
+                {
+                    _dimensionIsInt = true;
+
+                    int dimensionInt = dimension.ToTagInt();
+
+                    switch (dimensionInt)
+                    {
+                        case -1:
+                            _dimension = "minecraft:the_nether";
+                            break;
+
+                        case 0:
+                            _dimension = "minecraft:overworld";
+                            break;
+
+                        case 1:
+                            _dimension = "minecraft:the_end";
+                            break;
+
+                        default:
+                            _dimension = dimensionInt.ToString();
+                            break;
+                    }
+                }
+                else if (dimension.IsCastableTo(TagType.TAG_STRING))
+                {
+                    _dimensionIsInt = false;
+                    _dimension = dimension.ToTagString();
+                }
+            }
+
             _sleeping = ctree["Sleeping"].ToTagByte();
             _sleepTimer = ctree["SleepTimer"].ToTagShort();
 
@@ -566,7 +604,15 @@ namespace Substrate
             tree["Health"] = new TagNodeFloat(_health);
             tree["HurtTime"] = new TagNodeShort(_hurtTime);
 
-            tree["Dimension"] = new TagNodeInt(_dimension);
+            if (_dimensionIsInt)
+            {
+                // ignore parse errors? Will default to 0
+                int.TryParse(_dimension, out int dimensionInt);
+                tree["Dimension"] = new TagNodeInt(dimensionInt);
+            }
+            else
+                tree["Dimension"] = new TagNodeString(_dimension);
+
             tree["Sleeping"] = new TagNodeByte(_sleeping);
             tree["SleepTimer"] = new TagNodeShort(_sleepTimer);
 

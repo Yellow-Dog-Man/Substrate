@@ -143,7 +143,7 @@ namespace Substrate
                 new SchemaNodeScaler("SpawnY", TagType.TAG_INT),
                 new SchemaNodeScaler("SpawnZ", TagType.TAG_INT),
                 new SchemaNodeScaler("SizeOnDisk", TagType.TAG_LONG, SchemaOptions.CREATE_ON_MISSING),
-                new SchemaNodeScaler("RandomSeed", TagType.TAG_LONG),
+                new SchemaNodeScaler("RandomSeed", TagType.TAG_LONG, SchemaOptions.OPTIONAL),
                 new SchemaNodeScaler("version", TagType.TAG_INT, SchemaOptions.OPTIONAL),
                 new SchemaNodeScaler("LevelName", TagType.TAG_STRING, SchemaOptions.OPTIONAL),
                 new SchemaNodeScaler("generatorName", TagType.TAG_STRING, SchemaOptions.OPTIONAL),
@@ -615,7 +615,9 @@ namespace Substrate
             _spawnZ = ctree["SpawnZ"].ToTagInt();
 
             _sizeOnDisk = ctree["SizeOnDisk"].ToTagLong();
-            _randomSeed = ctree["RandomSeed"].ToTagLong();
+
+            if(ctree.ContainsKey("RandomSeed"))
+                _randomSeed = ctree["RandomSeed"].ToTagLong();
 
             if (ctree.ContainsKey("version")) {
                 _version = ctree["version"].ToTagInt();

@@ -12,8 +12,9 @@ namespace Substrate
     {
         private static readonly SchemaNodeCompound _schema = new SchemaNodeCompound("")
         {
-            new SchemaNodeScaler("id", TagType.TAG_SHORT),
-            new SchemaNodeScaler("Damage", TagType.TAG_SHORT),
+            // TODO!!! id can now be either string or int, not sure how to handle this for validation cleanly
+            //new SchemaNodeScaler("id", TagType.TAG_STRING),
+            new SchemaNodeScaler("Damage", TagType.TAG_SHORT, SchemaOptions.OPTIONAL),
             new SchemaNodeScaler("Count", TagType.TAG_BYTE),
             new SchemaNodeCompound("tag", new SchemaNodeCompound("") {
                 new SchemaNodeList("ench", TagType.TAG_COMPOUND, Enchantment.Schema, SchemaOptions.OPTIONAL),
@@ -25,7 +26,9 @@ namespace Substrate
 
         private TagNodeCompound _source;
 
-        private short _id;
+        private string _id;
+        private int _intId;
+
         private byte _count;
         private short _damage;
 
@@ -44,10 +47,10 @@ namespace Substrate
         /// Constructs an <see cref="Item"/> instance representing the given item id.
         /// </summary>
         /// <param name="id">An item id.</param>
-        public Item (int id)
+        public Item (string id)
             : this()
         {
-            _id = (short)id;
+            _id = id;
         }
 
         #region Properties
@@ -55,18 +58,19 @@ namespace Substrate
         /// <summary>
         /// Gets an <see cref="ItemInfo"/> entry for this item's type.
         /// </summary>
-        public ItemInfo Info
+        // TODO!!! Disable for now. Item ID is a string in latest version, but this is based around integers
+        /*public ItemInfo Info
         {
             get { return ItemInfo.ItemTable[_id]; }
-        }
+        }*/
 
         /// <summary>
         /// Gets or sets the current type (id) of the item.
         /// </summary>
-        public int ID
+        public string ID
         {
             get { return _id; }
-            set { _id = (short)value; }
+            set { _id = value; }
         }
 
         /// <summary>
@@ -149,9 +153,23 @@ namespace Substrate
 
             _enchantments.Clear();
 
-            _id = ctree["id"].ToTagShort();
+            var idNode = ctree["id"];
+
+            if(idNode.IsCastableTo(TagType.TAG_INT))
+            {
+                _id = null;
+                _intId = idNode.ToTagInt();
+            }
+            else
+            {
+                _id = idNode.ToTagString();
+                _intId = -1;
+            }
+
             _count = ctree["Count"].ToTagByte();
-            _damage = ctree["Damage"].ToTagShort();
+
+            if(ctree.ContainsKey("Damage"))
+                _damage = ctree["Damage"].ToTagShort();
 
             if (ctree.ContainsKey("tag")) {
                 TagNodeCompound tagtree = ctree["tag"].ToTagCompound();
@@ -183,7 +201,12 @@ namespace Substrate
         public TagNode BuildTree ()
         {
             TagNodeCompound tree = new TagNodeCompound();
-            tree["id"] = new TagNodeShort(_id);
+
+            if (_id != null)
+                tree["id"] = new TagNodeString(_id);
+            else
+                tree["id"] = new TagNodeInt(_intId);
+
             tree["Count"] = new TagNodeByte(_count);
             tree["Damage"] = new TagNodeShort(_damage);
 
