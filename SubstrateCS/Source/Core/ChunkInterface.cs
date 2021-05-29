@@ -43,6 +43,8 @@ namespace Substrate.Core
 
         string Status { get; set; }
 
+        bool UsesPalette { get; }
+
         void SetLocation (int x, int z);
 
         /// <summary>

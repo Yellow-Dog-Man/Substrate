@@ -74,6 +74,8 @@ namespace Substrate
             get { return _cz; }
         }
 
+        public bool UsesPalette { get { return false; } }
+
         public string Status
         {
             get { return null; }

@@ -141,6 +141,17 @@ namespace Substrate
             }
         }
 
+        public bool UsesPalette
+        {
+            get
+            {
+                if (_chunk == null)
+                    GetChunk();
+
+                return _chunk.UsesPalette;
+            }
+        }
+
         /// <summary>
         /// Forbid direct instantiation of ChunkRef objects
         /// </summary>
@@ -310,8 +321,11 @@ namespace Substrate
                     _entities = _chunk.Entities;
 
                     // Set callback functions in the underlying block collection
-                    _blocks.ResolveNeighbor += ResolveNeighborHandler;
-                    _blocks.TranslateCoordinates += TranslateCoordinatesHandler;
+                    if (_blocks != null)
+                    {
+                        _blocks.ResolveNeighbor += ResolveNeighborHandler;
+                        _blocks.TranslateCoordinates += TranslateCoordinatesHandler;
+                    }
                 }
             }
             return _chunk;

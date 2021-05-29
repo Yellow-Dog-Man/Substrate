@@ -27,6 +27,8 @@ namespace Substrate
 
         private TagNodeCompound _tree;
 
+        private bool _usesPalette;
+
         private byte _y;
         private YZXByteArray _blocks;
         private YZXNibbleArray _data;
@@ -63,6 +65,11 @@ namespace Substrate
                 _y = (byte)value;
                 _tree["Y"].ToTagByte().Data = _y;
             }
+        }
+
+        public bool UsesPalette
+        {
+            get { return _usesPalette; }
         }
 
         public YZXByteArray Blocks
@@ -123,14 +130,28 @@ namespace Substrate
 
             _y = ctree["Y"] as TagNodeByte;
 
-            _blocks = new YZXByteArray(XDIM, YDIM, ZDIM, ctree["Blocks"] as TagNodeByteArray);
-            _data = new YZXNibbleArray(XDIM, YDIM, ZDIM, ctree["Data"] as TagNodeByteArray);
-            _skyLight = new YZXNibbleArray(XDIM, YDIM, ZDIM, ctree["SkyLight"] as TagNodeByteArray);
-            _blockLight = new YZXNibbleArray(XDIM, YDIM, ZDIM, ctree["BlockLight"] as TagNodeByteArray);
+            if(ctree.ContainsKey("Blocks"))
+            {
+                _usesPalette = false;
 
-            if (!ctree.ContainsKey("Add"))
-                ctree["Add"] = new TagNodeByteArray(new byte[2048]);
-            _addBlocks = new YZXNibbleArray(XDIM, YDIM, ZDIM, ctree["Add"] as TagNodeByteArray);
+                _blocks = new YZXByteArray(XDIM, YDIM, ZDIM, ctree["Blocks"] as TagNodeByteArray);
+                _data = new YZXNibbleArray(XDIM, YDIM, ZDIM, ctree["Data"] as TagNodeByteArray);
+
+                if (!ctree.ContainsKey("Add"))
+                    ctree["Add"] = new TagNodeByteArray(new byte[2048]);
+                _addBlocks = new YZXNibbleArray(XDIM, YDIM, ZDIM, ctree["Add"] as TagNodeByteArray);
+            }
+            else
+            {
+                // TODO!!! Need to rework this to support this new format
+                _usesPalette = true;
+            }
+
+            if(ctree.ContainsKey("SkyLight"))
+                _skyLight = new YZXNibbleArray(XDIM, YDIM, ZDIM, ctree["SkyLight"] as TagNodeByteArray);
+
+            if(ctree.ContainsKey("BlockLight"))
+                _blockLight = new YZXNibbleArray(XDIM, YDIM, ZDIM, ctree["BlockLight"] as TagNodeByteArray);
 
             _tree = ctree;
 
