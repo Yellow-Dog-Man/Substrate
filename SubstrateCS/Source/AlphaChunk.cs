@@ -58,6 +58,8 @@ namespace Substrate
         private AlphaBlockCollection _blockManager;
         private EntityCollection _entityManager;
 
+        private long _lastUpdate;
+
         /// <summary>
         /// Gets the global X-coordinate of the chunk.
         /// </summary>
@@ -80,6 +82,12 @@ namespace Substrate
         {
             get { return null; }
             set { throw new NotSupportedException(); }
+        }
+
+        public long LastUpdate
+        {
+            get { return _lastUpdate; }
+            set { _lastUpdate = value; }
         }
 
         /// <summary>
@@ -303,6 +311,9 @@ namespace Substrate
                 level["TileTicks"] = new TagNodeList(TagType.TAG_COMPOUND);
                 _tileTicks = level["TileTicks"] as TagNodeList;
             }
+
+            if (level.ContainsKey("LastUpdate"))
+                _lastUpdate = level["LastUpdate"].ToTagLong();
 
             _cx = level["xPos"].ToTagInt();
             _cz = level["zPos"].ToTagInt();

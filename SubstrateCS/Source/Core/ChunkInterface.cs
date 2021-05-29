@@ -42,6 +42,7 @@ namespace Substrate.Core
         bool IsTerrainPopulated { get; set; }
 
         string Status { get; set; }
+        long LastUpdate { get; set; }
 
         bool UsesPalette { get; }
 

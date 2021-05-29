@@ -141,6 +141,25 @@ namespace Substrate
             }
         }
 
+        public long LastUpdate
+        {
+            get
+            {
+                if (_chunk == null)
+                    GetChunk();
+
+                return _chunk.LastUpdate;
+            }
+
+            set
+            {
+                if (_chunk == null)
+                    GetChunk();
+
+                _chunk.LastUpdate = value;
+            }
+        }
+
         public bool UsesPalette
         {
             get

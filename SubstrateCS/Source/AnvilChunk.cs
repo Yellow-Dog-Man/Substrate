@@ -49,6 +49,7 @@ namespace Substrate
         private bool _usesPalette;
 
         private string _status;
+        private long _lastUpdate;
 
         private AnvilSection[] _sections;
 
@@ -91,6 +92,13 @@ namespace Substrate
             get { return _status; }
             set { _status = value; }
         }
+
+        public long LastUpdate
+        {
+            get { return _lastUpdate; }
+            set { _lastUpdate = value; }
+        }
+
 
         public AnvilSection[] Sections
         {
@@ -262,6 +270,9 @@ namespace Substrate
 
             if (level.ContainsKey("Status"))
                 _status = level["Status"].ToTagString();
+
+            if(level.ContainsKey("LastUpdate"))
+                _lastUpdate = level["LastUpdate"].ToTagLong();
 
             TagNodeList sections = level["Sections"] as TagNodeList;
             foreach (TagNodeCompound section in sections)
