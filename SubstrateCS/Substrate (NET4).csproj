@@ -3,6 +3,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+
+    <PackageId>YellowDogMan.Substrate</PackageId>
+    <Authors>Justin Aquadro, Yellow Dog Man Studios s.r.o.</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+
     <ProductVersion>9.0.30729</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{7264A1C4-AB4A-4437-B252-7379B98B5509}</ProjectGuid>
