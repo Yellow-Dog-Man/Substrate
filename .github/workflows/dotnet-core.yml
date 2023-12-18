@@ -19,4 +19,4 @@ jobs:
     - uses: actions/checkout@v2
     - name: build
       run: |
-        dotnet build "SubstrateCS/SubStrate (NET4).csproj" -c Release
+        dotnet build "SubstrateCS/SubStrate.NET4.csproj" -c Release

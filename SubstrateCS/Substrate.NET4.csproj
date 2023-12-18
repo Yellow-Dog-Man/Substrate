@@ -1,13 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-
+    <Id>YellowDogMan.Substrate</Id>
     <PackageId>YellowDogMan.Substrate</PackageId>
     <Authors>Justin Aquadro, Yellow Dog Man Studios s.r.o.</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-
+  </PropertyGroup>
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProductVersion>9.0.30729</ProductVersion>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{7264A1C4-AB4A-4437-B252-7379B98B5509}</ProjectGuid>
