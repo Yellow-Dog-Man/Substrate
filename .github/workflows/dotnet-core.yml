@@ -17,10 +17,6 @@ jobs:
     runs-on: windows-2019
     steps:
     - uses: actions/checkout@v2
-    - name: Setup .NET 4
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '4.x'
     - name: build
       run: |
         dotnet build "SubstrateCS/SubStrate (NET4).csproj" -c Release
