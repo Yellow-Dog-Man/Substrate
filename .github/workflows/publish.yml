@@ -19,6 +19,8 @@ jobs:
       with:
         nuget-api-key: ${{ secrets.NUGET_TOKEN }}
     - name: Pack
+      shell: cmd
       run: nuget pack "SubstrateCS/SubStrate (NET4).csproj" -OutputDirectory nupkgs -Build -Version ${{ env.VERSION }} -Properties version="${{ env.VERSION }}";Configuration="Release"
     - name: Nuget Publish
+      shell: cmd
       run: nuget push nupkgs\*.nupkg -ApiKey ${{ secrets.NUGET_TOKEN }} -Source https://api.nuget.org/v3/index.json
