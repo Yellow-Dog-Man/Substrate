@@ -1,0 +1,26 @@
+name: .NET Core
+
+on:
+  push:
+    paths-ignore:
+      - '**/*.md'
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+      - '**/*.md'
+
+jobs:
+  build:
+    runs-on: windows-2019
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET 4
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '4.0'
+    - name: build
+      run: |
+        dotnet build "SubstrateCS/SubStrate (NET4).csproj" -c Release
