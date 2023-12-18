@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<package >
+  <metadata>
+    <id>YellowDogMan.Substrate</id>
+    <authors>Justin Aquadro, Yellow Dog Man Studios s.r.o.</authors>
+    <description>Substrate is a fully-developed .NET SDK for editing Minecraft worlds.</description>
+    <version>0.1.0</version>
+  </metadata>
+</package>
