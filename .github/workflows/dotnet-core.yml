@@ -20,7 +20,7 @@ jobs:
     - name: Setup .NET 4
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: '4.0'
+        dotnet-version: '4.x'
     - name: build
       run: |
         dotnet build "SubstrateCS/SubStrate (NET4).csproj" -c Release
