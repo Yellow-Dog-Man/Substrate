@@ -9,6 +9,8 @@ namespace Substrate
 {
     public class AnvilChunk : IChunk, INbtObject<AnvilChunk>, ICopyable<AnvilChunk>
     {
+        const int FLATTENED_DATA_VERSION = 2860;
+
         public static SchemaNodeCompound LevelSchema = new SchemaNodeCompound()
         {
             new SchemaNodeCompound("Level")
@@ -37,11 +39,41 @@ namespace Substrate
             },
         };
 
+        public static SchemaNodeCompound FlattenedLevelSchema = new SchemaNodeCompound()
+        {
+            new SchemaNodeList("sections", TagType.TAG_COMPOUND, new SchemaNodeCompound() {
+                new SchemaNodeArray("Blocks", 4096, SchemaOptions.OPTIONAL),
+                new SchemaNodeLongArray("BlockStates", SchemaOptions.OPTIONAL),
+                new SchemaNodeList("Palette", TagType.TAG_COMPOUND, SchemaOptions.OPTIONAL),
+                new SchemaNodeArray("Data", 2048, SchemaOptions.OPTIONAL),
+                new SchemaNodeArray("SkyLight", 2048, SchemaOptions.CREATE_ON_MISSING),
+                new SchemaNodeArray("BlockLight", 2048, SchemaOptions.CREATE_ON_MISSING),
+                new SchemaNodeScaler("Y", TagType.TAG_BYTE),
+                new SchemaNodeArray("Add", 2048, SchemaOptions.OPTIONAL),
+            }),
+            // TODO!!! There's the old 256 vertical only biomes and the new XZY one
+            //new SchemaNodeIntArray("Biomes", 1024, SchemaOptions.OPTIONAL),
+            // TODO!!! This is different format from the old one and I could not find documentation on when/how did this change
+            //new SchemaNodeIntArray("Heightmaps", 256, SchemaOptions.OPTIONAL),
+            new SchemaNodeList("entities", TagType.TAG_COMPOUND, SchemaOptions.CREATE_ON_MISSING),
+            new SchemaNodeList("block_entities", TagType.TAG_COMPOUND, TileEntity.Schema, SchemaOptions.CREATE_ON_MISSING),
+            new SchemaNodeList("block_ticks", TagType.TAG_COMPOUND, TileTick.Schema, SchemaOptions.OPTIONAL),
+            new SchemaNodeScaler("LastUpdate", TagType.TAG_LONG, SchemaOptions.CREATE_ON_MISSING),
+            new SchemaNodeScaler("Status", TagType.TAG_STRING, SchemaOptions.OPTIONAL),
+            new SchemaNodeScaler("xPos", TagType.TAG_INT),
+            new SchemaNodeScaler("yPos", TagType.TAG_INT),
+            new SchemaNodeScaler("zPos", TagType.TAG_INT),
+        };
+
         private const int XDIM = 16;
         private const int YDIM = 256;
         private const int ZDIM = 16;
 
         private NbtTree _tree;
+
+        // Post 1.18 the structure has changed
+        // If there are more versions in the future, turn this into an enum?
+        private bool _flattenedVersion;
 
         private int _cx;
         private int _cz;
@@ -266,7 +298,12 @@ namespace Substrate
 
             _tree = new NbtTree(ctree);
 
-            TagNodeCompound level = _tree.Root["Level"] as TagNodeCompound;
+            TagNodeCompound level;
+
+            if (_flattenedVersion)
+                level = _tree.Root;
+            else
+                level = _tree.Root["Level"] as TagNodeCompound;
 
             if (level.ContainsKey("Status"))
                 _status = level["Status"].ToTagString();
@@ -274,7 +311,8 @@ namespace Substrate
             if(level.ContainsKey("LastUpdate"))
                 _lastUpdate = level["LastUpdate"].ToTagLong();
 
-            TagNodeList sections = level["Sections"] as TagNodeList;
+            TagNodeList sections = level[_flattenedVersion ? "sections" : "Sections"] as TagNodeList;
+
             foreach (TagNodeCompound section in sections)
             {
                 AnvilSection anvilSection = new AnvilSection(section);
@@ -359,11 +397,15 @@ namespace Substrate
                             _biomes[x, y, z] = BiomeType.Default;
             }
 
-            _entities = level["Entities"] as TagNodeList;
-            _tileEntities = level["TileEntities"] as TagNodeList;
+            var ticksName = _flattenedVersion ? "block_ticks" : "TileTicks";
+            var entitiesName = _flattenedVersion ? "entities" : "Entities";
+            var blockEntitiesName = _flattenedVersion ? "block_entities" : "TileEntities";
 
-            if (level.ContainsKey("TileTicks"))
-                _tileTicks = level["TileTicks"] as TagNodeList;
+            _entities = level[entitiesName] as TagNodeList;
+            _tileEntities = level[blockEntitiesName] as TagNodeList;
+
+            if (level.ContainsKey(ticksName))
+                _tileTicks = level[ticksName] as TagNodeList;
             else
                 _tileTicks = new TagNodeList(TagType.TAG_COMPOUND);
 
@@ -382,8 +424,8 @@ namespace Substrate
 
             if (_tileTicks.Count == 0)
             {
-                level["TileTicks"] = new TagNodeList(TagType.TAG_COMPOUND);
-                _tileTicks = level["TileTicks"] as TagNodeList;
+                level[ticksName] = new TagNodeList(TagType.TAG_COMPOUND);
+                _tileTicks = level[ticksName] as TagNodeList;
             }
 
             _cx = level["xPos"].ToTagInt();
@@ -400,6 +442,16 @@ namespace Substrate
 
         public AnvilChunk LoadTreeSafe(TagNode tree)
         {
+            if (tree is TagNodeCompound compound)
+            {
+                if (!compound.TryGetValue("DataVersion", out var dataVersionNode))
+                    return null;
+
+                _flattenedVersion = dataVersionNode.ToTagInt().Data >= FLATTENED_DATA_VERSION;
+            }
+            else
+                return null;
+
             if (!ValidateTree(tree))
             {
                 return null;
@@ -440,7 +492,7 @@ namespace Substrate
 
         public bool ValidateTree(TagNode tree)
         {
-            NbtVerifier v = new NbtVerifier(tree, LevelSchema);
+            NbtVerifier v = new NbtVerifier(tree, _flattenedVersion ? FlattenedLevelSchema : LevelSchema);
             return v.Verify();
         }
 
@@ -457,6 +509,10 @@ namespace Substrate
 
         private void BuildConditional()
         {
+            // TODO!!! Add support for the new format
+            if (_flattenedVersion)
+                throw new NotImplementedException();
+
             TagNodeCompound level = _tree.Root["Level"] as TagNodeCompound;
             if (_tileTicks != _blockManager.TileTicks && _blockManager.TileTicks.Count > 0)
             {
@@ -467,6 +523,10 @@ namespace Substrate
 
         private void BuildNBTTree()
         {
+            // TODO!!! Add support for the new format
+            if (_flattenedVersion)
+                throw new NotImplementedException();
+
             int elements2 = XDIM * ZDIM;
 
             _sections = new AnvilSection[16];

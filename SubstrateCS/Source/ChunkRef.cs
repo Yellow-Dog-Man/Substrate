@@ -25,6 +25,17 @@ namespace Substrate
 
         private bool _dirty;
 
+        public bool IsValid
+        {
+            get
+            {
+                if (_chunk == null)
+                    GetChunk();
+
+                return _chunk != null;
+            }
+        }
+
         /// <summary>
         /// Gets the global X-coordinate of the chunk.
         /// </summary>
