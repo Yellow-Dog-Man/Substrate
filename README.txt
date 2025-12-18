@@ -1,5 +1,11 @@
 Substrate
 Copyright (C) 2011 Justin Aquadro
+Copyright (C) 2025 leha-code
+
+This fork of Substrate adds support for little-endian integers and MCPE NBT file headers.
+The output DLL can be used as a drop-in for anything that uses Substrate (e.g. NBTexplorer). It will write with the same header (None, MCPE, ENT) as read, provided the same NBT tree object is used for both operations.
+A precompiled DLL should be in the releases section.
+Locally I upgraded the projects to framework 4.6-ish but the code should work, if not, please open an issue or pull request.
 
 LICENSE:
    

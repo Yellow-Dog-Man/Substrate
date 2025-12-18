@@ -4,9 +4,28 @@ using System.Text;
 using System.IO;
 using System.IO.Compression;
 using Substrate.Core;
+using System.Linq;
 
 namespace Substrate.Nbt
 {
+    public enum EndiannessType
+    {
+        /// <summary> Will read/write all integers and specifiers as big endian </summary>
+        BigEndian,
+        /// <summary> Will read/write all integers and specifiers as little endian </summary>
+        LittleEndian,
+    }
+
+    public enum HeaderType
+    {
+        /// <summary> Will not attempt to read/write any header </summary>
+        None,
+        /// <summary> Will attempt to read/write the 8-byte level.dat header </summary>
+        LevelHeader,
+        /// <summary> Will attempt to read/write the 12-byte entity header </summary>
+        EntityHeader,
+    }
+
     /// <summary>
     /// Contains the root node of an NBT tree and handles IO of tree nodes.
     /// </summary>
@@ -20,7 +39,10 @@ namespace Substrate.Nbt
         private Stream _stream = null;
         private TagNodeCompound _root = null;
         private string _rootName = "";
-
+        public UInt32 versionSaved;
+        public HeaderType headerType = HeaderType.None;
+        public EndiannessType endiannessType = EndiannessType.BigEndian;
+        
         private static TagNodeNull _nulltag = new TagNodeNull();
 
         /// <summary>
@@ -83,9 +105,20 @@ namespace Substrate.Nbt
         /// <param name="s">An open, readable data stream containing NBT data.</param>
         public void ReadFrom (Stream s)
         {
-            if (s != null) {
+            ReadFrom(s, EndiannessType.BigEndian); /* Would autocorrect itself for drop-in */
+        }
+
+        /// <summary>
+        /// Rebuild the internal NBT tree from a source data stream using the specified endianess type.
+        /// </summary>
+        /// <param name="s">An open, readable data stream containing NBT data.</param>
+        /// <param name="endian">The endianness type to use for reading all the integer types.</param>
+        public void ReadFrom(Stream s, EndiannessType endian)
+        {
+            if (s != null)
+            {
                 _stream = s;
-                _root = ReadRoot();
+                _root = ReadRoot(endian);
                 _stream = null;
             }
         }
@@ -96,18 +129,50 @@ namespace Substrate.Nbt
         /// <param name="s">An open, writable data stream.</param>
         public void WriteTo (Stream s)
         {
-            if (s != null) {
-                _stream = s;
+            WriteTo(s, endiannessType);
+        }
 
-                if (_root != null) {
-                    WriteTag(_rootName, _root);
+        /// <summary>
+        /// Writes out the internal NBT tree to a destination data stream.
+        /// </summary>
+        /// <param name="s">An open, writable data stream.</param>
+        /// <param name="endian">The endianness type to use for writing all the integer types.</param>
+        public void WriteTo (Stream s, EndiannessType endian)
+        {
+            if (s != null && _root != null) {
+                _stream = s;
+                long oldStreamLength = s.Length;
+                WriteTag(_rootName, _root, endian);
+                int length = (int)(s.Length - oldStreamLength);
+
+                if (headerType != HeaderType.None)
+                    _stream.Seek(oldStreamLength, SeekOrigin.Begin);
+                switch(headerType)
+                {
+                    case HeaderType.EntityHeader:
+                        byte[] header = new byte[] { (byte)'E', (byte)'N', (byte)'T', 0 };
+                        _stream.Write(header, 0, 4);
+                        goto case HeaderType.LevelHeader;
+                    case HeaderType.LevelHeader:
+                        byte[] version = BitConverter.GetBytes(versionSaved);
+                        byte[] lengthBytes = BitConverter.GetBytes(length);
+                        if (!BitConverter.IsLittleEndian)
+                        {
+                            Array.Reverse(version);
+                            Array.Reverse(lengthBytes);
+                        }
+                        _stream.Write(version, 0, 4);
+                        _stream.Write(lengthBytes, 0, 4);
+                        WriteTag(_rootName, _root, endian);
+                        break;
                 }
+
 
                 _stream = null;
             }
         }
 
-        private TagNode ReadValue (TagType type)
+        private TagNode ReadValue (TagType type, EndiannessType endian)
         {
             switch (type) {
                 case TagType.TAG_END:
@@ -117,43 +182,48 @@ namespace Substrate.Nbt
                     return ReadByte();
 
                 case TagType.TAG_SHORT:
-                    return ReadShort();
+                    return ReadShort(endian);
 
                 case TagType.TAG_INT:
-                    return ReadInt();
+                    return ReadInt(endian);
 
                 case TagType.TAG_LONG:
-                    return ReadLong();
+                    return ReadLong(endian);
 
                 case TagType.TAG_FLOAT:
-                    return ReadFloat();
+                    return ReadFloat(endian);
 
                 case TagType.TAG_DOUBLE:
-                    return ReadDouble();
+                    return ReadDouble(endian);
 
                 case TagType.TAG_BYTE_ARRAY:
-                    return ReadByteArray();
+                    return ReadByteArray(endian);
 
                 case TagType.TAG_STRING:
-                    return ReadString();
+                    return ReadString(endian);
 
                 case TagType.TAG_LIST:
-                    return ReadList();
+                    return ReadList(endian); /* elements need endian + length? */
 
                 case TagType.TAG_COMPOUND:
-                    return ReadCompound();
+                    return ReadCompound(endian);
 
                 case TagType.TAG_INT_ARRAY:
-                    return ReadIntArray();
+                    return ReadIntArray(endian);
                     
                 case TagType.TAG_LONG_ARRAY:
-                    return ReadLongArray();
+                    return ReadLongArray(endian);
 
                 case TagType.TAG_SHORT_ARRAY:
-                    return ReadShortArray();
+                    return ReadShortArray(endian);
             }
 
             throw new Exception();
+        }
+
+        private bool EndiannessMatchesHost(EndiannessType endian)
+        {
+            return (endian == EndiannessType.LittleEndian && BitConverter.IsLittleEndian || endian == EndiannessType.BigEndian && !BitConverter.IsLittleEndian);
         }
 
         private TagNode ReadByte ()
@@ -168,12 +238,12 @@ namespace Substrate.Nbt
             return val;
         }
 
-        private TagNode ReadShort ()
+        private TagNode ReadShort (EndiannessType endian)
         {
             byte[] gzBytes = new byte[2];
             _stream.Read(gzBytes, 0, 2);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(gzBytes);
             }
 
@@ -182,12 +252,12 @@ namespace Substrate.Nbt
             return val;
         }
 
-        private TagNode ReadInt ()
+        private TagNode ReadInt (EndiannessType endian)
         {
             byte[] gzBytes = new byte[4];
             _stream.Read(gzBytes, 0, 4);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(gzBytes);
             }
 
@@ -196,12 +266,12 @@ namespace Substrate.Nbt
             return val;
         }
 
-        private TagNode ReadLong ()
+        private TagNode ReadLong (EndiannessType endian)
         {
             byte[] gzBytes = new byte[8];
             _stream.Read(gzBytes, 0, 8);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(gzBytes);
             }
 
@@ -210,12 +280,12 @@ namespace Substrate.Nbt
             return val;
         }
 
-        private TagNode ReadFloat ()
+        private TagNode ReadFloat (EndiannessType endian)
         {
             byte[] gzBytes = new byte[4];
             _stream.Read(gzBytes, 0, 4);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(gzBytes);
             }
 
@@ -224,12 +294,12 @@ namespace Substrate.Nbt
             return val;
         }
 
-        private TagNode ReadDouble ()
+        private TagNode ReadDouble (EndiannessType endian)
         {
             byte[] gzBytes = new byte[8];
             _stream.Read(gzBytes, 0, 8);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(gzBytes);
             }
 
@@ -238,12 +308,12 @@ namespace Substrate.Nbt
             return val;
         }
 
-        private TagNode ReadByteArray ()
+        private TagNode ReadByteArray (EndiannessType endian)
         {
             byte[] lenBytes = new byte[4];
             _stream.Read(lenBytes, 0, 4);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(lenBytes);
             }
 
@@ -260,12 +330,12 @@ namespace Substrate.Nbt
             return val;
         }
 
-        private TagNode ReadString ()
+        private TagNode ReadString (EndiannessType endian)
         {
             byte[] lenBytes = new byte[2];
             _stream.Read(lenBytes, 0, 2);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(lenBytes);
             }
 
@@ -284,7 +354,7 @@ namespace Substrate.Nbt
             return val;
         }
 
-        private TagNode ReadList ()
+        private TagNode ReadList (EndiannessType endian)
         {
             int gzByte = _stream.ReadByte();
             if (gzByte == -1) {
@@ -299,7 +369,7 @@ namespace Substrate.Nbt
             byte[] lenBytes = new byte[4];
             _stream.Read(lenBytes, 0, 4);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(lenBytes);
             }
 
@@ -312,27 +382,27 @@ namespace Substrate.Nbt
                 return new TagNodeList(TagType.TAG_BYTE);
 
             for (int i = 0; i < length; i++) {
-                val.Add(ReadValue(val.ValueType));
+                val.Add(ReadValue(val.ValueType, endian));
             }
 
             return val;
         }
 
-        private TagNode ReadCompound ()
+        private TagNode ReadCompound (EndiannessType endian)
         {
             TagNodeCompound val = new TagNodeCompound();
 
-            while (ReadTag(val)) ;
+            while (ReadTag(val, endian)) ;
 
             return val;
         }
 
-        private TagNode ReadIntArray ()
+        private TagNode ReadIntArray (EndiannessType endian)
         {
             byte[] lenBytes = new byte[4];
             _stream.Read(lenBytes, 0, 4);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(lenBytes);
             }
 
@@ -345,7 +415,7 @@ namespace Substrate.Nbt
             byte[] buffer = new byte[4];
             for (int i = 0; i < length; i++) {
                 _stream.Read(buffer, 0, 4);
-                if (BitConverter.IsLittleEndian) {
+                if (!EndiannessMatchesHost(endian)) {
                     Array.Reverse(buffer);
                 }
                 data[i] = BitConverter.ToInt32(buffer, 0);
@@ -356,12 +426,12 @@ namespace Substrate.Nbt
             return val;
         }
 
-        private TagNode ReadLongArray ()
+        private TagNode ReadLongArray (EndiannessType endian)
         {
             byte[] lenBytes = new byte[4];
             _stream.Read(lenBytes, 0, 4);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(lenBytes);
             }
 
@@ -374,7 +444,7 @@ namespace Substrate.Nbt
             byte[] buffer = new byte[8];
             for (int i = 0; i < length; i++) {
                 _stream.Read(buffer, 0, 8);
-                if (BitConverter.IsLittleEndian) {
+                if (!EndiannessMatchesHost(endian)) {
                     Array.Reverse(buffer);
                 }
                 data[i] = BitConverter.ToInt64(buffer, 0);
@@ -385,12 +455,12 @@ namespace Substrate.Nbt
             return val;
         }
 
-        private TagNode ReadShortArray ()
+        private TagNode ReadShortArray (EndiannessType endian)
         {
             byte[] lenBytes = new byte[4];
             _stream.Read(lenBytes, 0, 4);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(lenBytes);
             }
 
@@ -403,7 +473,7 @@ namespace Substrate.Nbt
             byte[] buffer = new byte[2];
             for (int i = 0; i < length; i++) {
                 _stream.Read(buffer, 0, 2);
-                if (BitConverter.IsLittleEndian) {
+                if (!EndiannessMatchesHost(endian)) {
                     Array.Reverse(buffer);
                 }
                 data[i] = BitConverter.ToInt16(buffer, 0);
@@ -414,30 +484,55 @@ namespace Substrate.Nbt
             return val;
         }
 
-        private TagNodeCompound ReadRoot ()
-        {
+        private TagNodeCompound ReadRoot (EndiannessType endian) {
             TagType type = (TagType)_stream.ReadByte();
-            if (type == TagType.TAG_COMPOUND) {
-                _rootName = ReadString().ToTagString().Data; // name
-                return ReadValue(type) as TagNodeCompound;
+            if (type == TagType.TAG_COMPOUND)
+                headerType = HeaderType.None;
+            /* TODO: Ensure there is no format version 10, as this line can fail on it. This bug isn't possible with the entity header. */
+            else
+            {
+                byte[] header = new byte[4];
+                header[0] = (byte)type;
+                _stream.Read(header, 1, 3);
+                /* Entity header */
+                if (System.Text.Encoding.ASCII.GetString(header, 0, 3).Equals("ENT") && header[3] == 0)
+                {
+                    _stream.Read(header, 0, 4);
+                    headerType = HeaderType.EntityHeader;
+                }
+                else headerType = HeaderType.LevelHeader;
+                if (!BitConverter.IsLittleEndian)
+                    Array.Reverse(header);
+                versionSaved = BitConverter.ToUInt32(header, 0); /* Save for future writing */
+                /* Otherwise the header above was just the version header, since we don't know all version values, just check file length */
+                _stream.Read(header, 0, 4);
+                if (!BitConverter.IsLittleEndian)
+                    Array.Reverse(header);
+                if (_stream.Length - ((headerType == HeaderType.EntityHeader) ? 12 : 8) != System.BitConverter.ToUInt32(header, 0)) /* invalid length */
+                    return null;
+                type = (TagType)_stream.ReadByte();
+                if (type != TagType.TAG_COMPOUND) /* Data after the header is invalid */
+                    return null;
+                endian = EndiannessType.LittleEndian; /* MCPE does not have big endian, so save with it by default. This also would work well for drop-in */
             }
-
-            return null;
+            _rootName = ReadString(endian).ToTagString().Data; // name
+            endiannessType = endian;
+            return ReadValue(type, endian) as TagNodeCompound;
         }
 
-        private bool ReadTag (TagNodeCompound parent)
+        private bool ReadTag (TagNodeCompound parent, EndiannessType endian)
         {
             TagType type = (TagType)_stream.ReadByte();
             if (type != TagType.TAG_END) {
-                string name = ReadString().ToTagString().Data;
-                parent[name] = ReadValue(type);
+                string name = ReadString(endian).ToTagString().Data;
+                parent[name] = ReadValue(type, endian);
                 return true;
             }
 
             return false;
         }
 
-        private void WriteValue (TagNode val)
+        private void WriteValue (TagNode val, EndiannessType endian)
         {
             switch (val.GetTagType()) {
                 case TagType.TAG_END:
@@ -448,51 +543,51 @@ namespace Substrate.Nbt
                     break;
 
                 case TagType.TAG_SHORT:
-                    WriteShort(val.ToTagShort());
+                    WriteShort(val.ToTagShort(), endian);
                     break;
 
                 case TagType.TAG_INT:
-                    WriteInt(val.ToTagInt());
+                    WriteInt(val.ToTagInt(), endian);
                     break;
 
                 case TagType.TAG_LONG:
-                    WriteLong(val.ToTagLong());
+                    WriteLong(val.ToTagLong(), endian);
                     break;
 
                 case TagType.TAG_FLOAT:
-                    WriteFloat(val.ToTagFloat());
+                    WriteFloat(val.ToTagFloat(), endian);
                     break;
 
                 case TagType.TAG_DOUBLE:
-                    WriteDouble(val.ToTagDouble());
+                    WriteDouble(val.ToTagDouble(), endian);
                     break;
 
                 case TagType.TAG_BYTE_ARRAY:
-                    WriteByteArray(val.ToTagByteArray());
+                    WriteByteArray(val.ToTagByteArray(), endian);
                     break;
 
                 case TagType.TAG_STRING:
-                    WriteString(val.ToTagString());
+                    WriteString(val.ToTagString(), endian);
                     break;
 
                 case TagType.TAG_LIST:
-                    WriteList(val.ToTagList());
+                    WriteList(val.ToTagList(), endian);
                     break;
 
                 case TagType.TAG_COMPOUND:
-                    WriteCompound(val.ToTagCompound());
+                    WriteCompound(val.ToTagCompound(), endian);
                     break;
 
                 case TagType.TAG_INT_ARRAY:
-                    WriteIntArray(val.ToTagIntArray());
+                    WriteIntArray(val.ToTagIntArray(), endian);
                     break;
 
                 case TagType.TAG_LONG_ARRAY:
-                    WriteLongArray(val.ToTagLongArray());
+                    WriteLongArray(val.ToTagLongArray(), endian);
                     break;
 
                 case TagType.TAG_SHORT_ARRAY:
-                    WriteShortArray(val.ToTagShortArray());
+                    WriteShortArray(val.ToTagShortArray(), endian);
                     break;
             }
         }
@@ -502,66 +597,66 @@ namespace Substrate.Nbt
             _stream.WriteByte(val.Data);
         }
 
-        private void WriteShort (TagNodeShort val)
+        private void WriteShort (TagNodeShort val, EndiannessType endian)
         {
             byte[] gzBytes = BitConverter.GetBytes(val.Data);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(gzBytes);
             }
 
             _stream.Write(gzBytes, 0, 2);
         }
 
-        private void WriteInt (TagNodeInt val)
+        private void WriteInt (TagNodeInt val, EndiannessType endian)
         {
             byte[] gzBytes = BitConverter.GetBytes(val.Data);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(gzBytes);
             }
 
             _stream.Write(gzBytes, 0, 4);
         }
 
-        private void WriteLong (TagNodeLong val)
+        private void WriteLong (TagNodeLong val, EndiannessType endian)
         {
             byte[] gzBytes = BitConverter.GetBytes(val.Data);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(gzBytes);
             }
 
             _stream.Write(gzBytes, 0, 8);
         }
 
-        private void WriteFloat (TagNodeFloat val)
+        private void WriteFloat (TagNodeFloat val, EndiannessType endian)
         {
             byte[] gzBytes = BitConverter.GetBytes(val.Data);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(gzBytes);
             }
 
             _stream.Write(gzBytes, 0, 4);
         }
 
-        private void WriteDouble (TagNodeDouble val)
+        private void WriteDouble (TagNodeDouble val, EndiannessType endian)
         {
             byte[] gzBytes = BitConverter.GetBytes(val.Data);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(gzBytes);
             }
 
             _stream.Write(gzBytes, 0, 8);
         }
 
-        private void WriteByteArray (TagNodeByteArray val)
+        private void WriteByteArray (TagNodeByteArray val, EndiannessType endian)
         {
             byte[] lenBytes = BitConverter.GetBytes(val.Length);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(lenBytes);
             }
 
@@ -569,14 +664,14 @@ namespace Substrate.Nbt
             _stream.Write(val.Data, 0, val.Length);
         }
 
-        private void WriteString (TagNodeString val)
+        private void WriteString (TagNodeString val, EndiannessType endian)
         {
             System.Text.Encoding str = Encoding.UTF8;
             byte[] gzBytes = str.GetBytes(val.Data);
 
             byte[] lenBytes = BitConverter.GetBytes((short)gzBytes.Length);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(lenBytes);
             }
 
@@ -585,11 +680,11 @@ namespace Substrate.Nbt
             _stream.Write(gzBytes, 0, gzBytes.Length);
         }
 
-        private void WriteList (TagNodeList val)
+        private void WriteList (TagNodeList val, EndiannessType endian)
         {
             byte[] lenBytes = BitConverter.GetBytes(val.Count);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(lenBytes);
             }
 
@@ -597,24 +692,24 @@ namespace Substrate.Nbt
             _stream.Write(lenBytes, 0, 4);
 
             foreach (TagNode v in val) {
-                WriteValue(v);
+                WriteValue(v, endian);
             }
         }
 
-        private void WriteCompound (TagNodeCompound val)
+        private void WriteCompound (TagNodeCompound val, EndiannessType endian)
         {
             foreach (KeyValuePair<string, TagNode> item in val) {
-                WriteTag(item.Key, item.Value);
+                WriteTag(item.Key, item.Value, endian);
             }
 
-            WriteTag(null, _nulltag);
+            WriteTag(null, _nulltag, endian);
         }
 
-        private void WriteIntArray (TagNodeIntArray val)
+        private void WriteIntArray (TagNodeIntArray val, EndiannessType endian)
         {
             byte[] lenBytes = BitConverter.GetBytes(val.Length);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(lenBytes);
             }
 
@@ -623,7 +718,7 @@ namespace Substrate.Nbt
             byte[] data = new byte[val.Length * 4];
             for (int i = 0; i < val.Length; i++) {
                 byte[] buffer = BitConverter.GetBytes(val.Data[i]);
-                if (BitConverter.IsLittleEndian) {
+                if (!EndiannessMatchesHost(endian)) {
                     Array.Reverse(buffer);
                 }
                 Array.Copy(buffer, 0, data, i * 4, 4);
@@ -632,11 +727,11 @@ namespace Substrate.Nbt
             _stream.Write(data, 0, data.Length);
         }
 
-        private void WriteLongArray (TagNodeLongArray val)
+        private void WriteLongArray (TagNodeLongArray val, EndiannessType endian)
         {
             byte[] lenBytes = BitConverter.GetBytes(val.Length);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(lenBytes);
             }
 
@@ -645,7 +740,7 @@ namespace Substrate.Nbt
             byte[] data = new byte[val.Length * 8];
             for (int i = 0; i < val.Length; i++) {
                 byte[] buffer = BitConverter.GetBytes(val.Data[i]);
-                if (BitConverter.IsLittleEndian) {
+                if (!EndiannessMatchesHost(endian)) {
                     Array.Reverse(buffer);
                 }
                 Array.Copy(buffer, 0, data, i * 8, 8);
@@ -654,11 +749,11 @@ namespace Substrate.Nbt
             _stream.Write(data, 0, data.Length);
         }
 
-        private void WriteShortArray (TagNodeShortArray val)
+        private void WriteShortArray (TagNodeShortArray val, EndiannessType endian)
         {
             byte[] lenBytes = BitConverter.GetBytes(val.Length);
 
-            if (BitConverter.IsLittleEndian) {
+            if (!EndiannessMatchesHost(endian)) {
                 Array.Reverse(lenBytes);
             }
 
@@ -667,7 +762,7 @@ namespace Substrate.Nbt
             byte[] data = new byte[val.Length * 2];
             for (int i = 0; i < val.Length; i++) {
                 byte[] buffer = BitConverter.GetBytes(val.Data[i]);
-                if (BitConverter.IsLittleEndian) {
+                if (!EndiannessMatchesHost(endian)) {
                     Array.Reverse(buffer);
                 }
                 Array.Copy(buffer, 0, data, i * 2, 2);
@@ -676,13 +771,13 @@ namespace Substrate.Nbt
             _stream.Write(data, 0, data.Length);
         }
 
-        private void WriteTag (string name, TagNode val)
+        private void WriteTag (string name, TagNode val, EndiannessType endian)
         {
             _stream.WriteByte((byte)val.GetTagType());
 
             if (val.GetTagType() != TagType.TAG_END) {
-                WriteString(name);
-                WriteValue(val);
+                WriteString(name, endian);
+                WriteValue(val, endian);
             }
         }
 
