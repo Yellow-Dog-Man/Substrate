@@ -132,6 +132,10 @@ namespace Substrate
     /// </summary>
     public class Level : INbtObject<Level>, ICopyable<Level>
     {
+        public const int VERSION_1_25_5_DATA_VERSION = 3950;
+
+        private int _dataVersion;
+
         private static SchemaNodeCompound _schema = new SchemaNodeCompound()
         {
             new SchemaNodeCompound("Data")
@@ -139,9 +143,12 @@ namespace Substrate
                 new SchemaNodeScaler("Time", TagType.TAG_LONG),
                 new SchemaNodeScaler("LastPlayed", TagType.TAG_LONG, SchemaOptions.CREATE_ON_MISSING),
                 new SchemaNodeCompound("Player", Player.Schema, SchemaOptions.OPTIONAL),
-                new SchemaNodeScaler("SpawnX", TagType.TAG_INT),
-                new SchemaNodeScaler("SpawnY", TagType.TAG_INT),
-                new SchemaNodeScaler("SpawnZ", TagType.TAG_INT),
+
+                // TODO!!! Add post 1_25_5 version?
+                new SchemaNodeScaler("SpawnX", TagType.TAG_INT, maxVersion: VERSION_1_25_5_DATA_VERSION),
+                new SchemaNodeScaler("SpawnY", TagType.TAG_INT, maxVersion: VERSION_1_25_5_DATA_VERSION),
+                new SchemaNodeScaler("SpawnZ", TagType.TAG_INT, maxVersion: VERSION_1_25_5_DATA_VERSION),
+
                 new SchemaNodeScaler("SizeOnDisk", TagType.TAG_LONG, SchemaOptions.CREATE_ON_MISSING),
                 new SchemaNodeScaler("RandomSeed", TagType.TAG_LONG, SchemaOptions.OPTIONAL),
                 new SchemaNodeScaler("version", TagType.TAG_INT, SchemaOptions.OPTIONAL),
@@ -610,9 +617,16 @@ namespace Substrate
                 _player = new Player().LoadTree(ctree["Player"]);
             }
 
-            _spawnX = ctree["SpawnX"].ToTagInt();
-            _spawnY = ctree["SpawnY"].ToTagInt();
-            _spawnZ = ctree["SpawnZ"].ToTagInt();
+            if (_dataVersion < VERSION_1_25_5_DATA_VERSION)
+            {
+                // TODO!!! Post 1_25_5 version?
+                // We don't really use this right now, so we don't particularly care for our use but...
+                // I'm kinda torn between investing more time into this library or just straight up tossing it out
+                // and building a simpler one, because it's not well equipped to deal with changing schema in the Anvil format
+                _spawnX = ctree["SpawnX"].ToTagInt();
+                _spawnY = ctree["SpawnY"].ToTagInt();
+                _spawnZ = ctree["SpawnZ"].ToTagInt();
+            }
 
             _sizeOnDisk = ctree["SizeOnDisk"].ToTagLong();
 
@@ -694,7 +708,26 @@ namespace Substrate
         /// <returns>The <see cref="Level"/> returns itself on success, or null if the tree failed validation.</returns>
         public virtual Level LoadTreeSafe (TagNode tree)
         {
-            if (!ValidateTree(tree)) {
+            if (tree is TagNodeCompound compound)
+            {
+                if (!compound.TryGetValue("Data", out var dataNode))
+                    return null;
+
+                if (dataNode is TagNodeCompound dataCompound)
+                {
+                    if (!dataCompound.TryGetValue("DataVersion", out var dataVersionNode))
+                        return null;
+
+                    _dataVersion = dataVersionNode.ToTagInt().Data;
+                }
+                else
+                    return null;
+            }
+            else
+                return null;
+
+            if (!ValidateTree(tree))
+            {
                 return null;
             }
 
@@ -798,7 +831,7 @@ namespace Substrate
         /// <returns>Status indicating whether the tree was valid against the internal schema.</returns>
         public virtual bool ValidateTree (TagNode tree)
         {
-            return new NbtVerifier(tree, _schema).Verify();
+            return new NbtVerifier(tree, _schema, _dataVersion).Verify();
         }
 
         #endregion

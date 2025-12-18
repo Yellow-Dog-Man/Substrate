@@ -22,8 +22,8 @@ namespace Substrate.Nbt
         /// </summary>
         /// <param name="name">The name of the corresponding <see cref="TagNode"/>.</param>
         /// <param name="type">The type of the corresponding <see cref="TagNode"/>, restricted to scaler types.</param>
-        public SchemaNodeScaler (string name, TagType type)
-            : base(name)
+        public SchemaNodeScaler (string name, TagType type, int? minVersion = null, int? maxVersion = null)
+            : base(name, default, minVersion, maxVersion)
         {
             _type = type;
         }
@@ -34,8 +34,9 @@ namespace Substrate.Nbt
         /// <param name="name">The name of the corresponding <see cref="TagNode"/>.</param>
         /// <param name="type">The type of the corresponding <see cref="TagNode"/>, restricted to scaler types.</param>
         /// <param name="options">One or more option flags modifying the processing of this node.</param>
-        public SchemaNodeScaler (string name, TagType type, SchemaOptions options)
-            : base(name, options)
+        public SchemaNodeScaler (string name, TagType type, SchemaOptions options,
+            int? minVersion = null, int? maxVersion = null)
+            : base(name, options, minVersion, maxVersion)
         {
             _type = type;
         }

@@ -73,7 +73,9 @@ namespace Substrate
 
         // Post 1.18 the structure has changed
         // If there are more versions in the future, turn this into an enum?
-        private bool _flattenedVersion;
+        private int _dataVersion;
+
+        private bool FlattenedSchema => _dataVersion >= FLATTENED_DATA_VERSION;
 
         private int _cx;
         private int _cz;
@@ -300,7 +302,7 @@ namespace Substrate
 
             TagNodeCompound level;
 
-            if (_flattenedVersion)
+            if (FlattenedSchema)
                 level = _tree.Root;
             else
                 level = _tree.Root["Level"] as TagNodeCompound;
@@ -311,7 +313,7 @@ namespace Substrate
             if(level.ContainsKey("LastUpdate"))
                 _lastUpdate = level["LastUpdate"].ToTagLong();
 
-            TagNodeList sections = level[_flattenedVersion ? "sections" : "Sections"] as TagNodeList;
+            TagNodeList sections = level[FlattenedSchema ? "sections" : "Sections"] as TagNodeList;
 
             foreach (TagNodeCompound section in sections)
             {
@@ -397,9 +399,9 @@ namespace Substrate
                             _biomes[x, y, z] = BiomeType.Default;
             }
 
-            var ticksName = _flattenedVersion ? "block_ticks" : "TileTicks";
-            var entitiesName = _flattenedVersion ? "entities" : "Entities";
-            var blockEntitiesName = _flattenedVersion ? "block_entities" : "TileEntities";
+            var ticksName = FlattenedSchema ? "block_ticks" : "TileTicks";
+            var entitiesName = FlattenedSchema ? "entities" : "Entities";
+            var blockEntitiesName = FlattenedSchema ? "block_entities" : "TileEntities";
 
             _entities = level[entitiesName] as TagNodeList;
             _tileEntities = level[blockEntitiesName] as TagNodeList;
@@ -447,7 +449,7 @@ namespace Substrate
                 if (!compound.TryGetValue("DataVersion", out var dataVersionNode))
                     return null;
 
-                _flattenedVersion = dataVersionNode.ToTagInt().Data >= FLATTENED_DATA_VERSION;
+                _dataVersion = dataVersionNode.ToTagInt().Data;
             }
             else
                 return null;
@@ -492,7 +494,7 @@ namespace Substrate
 
         public bool ValidateTree(TagNode tree)
         {
-            NbtVerifier v = new NbtVerifier(tree, _flattenedVersion ? FlattenedLevelSchema : LevelSchema);
+            NbtVerifier v = new NbtVerifier(tree, FlattenedSchema ? FlattenedLevelSchema : LevelSchema, _dataVersion);
             return v.Verify();
         }
 
@@ -510,7 +512,7 @@ namespace Substrate
         private void BuildConditional()
         {
             // TODO!!! Add support for the new format
-            if (_flattenedVersion)
+            if (FlattenedSchema)
                 throw new NotImplementedException();
 
             TagNodeCompound level = _tree.Root["Level"] as TagNodeCompound;
@@ -524,7 +526,7 @@ namespace Substrate
         private void BuildNBTTree()
         {
             // TODO!!! Add support for the new format
-            if (_flattenedVersion)
+            if (FlattenedSchema)
                 throw new NotImplementedException();
 
             int elements2 = XDIM * ZDIM;

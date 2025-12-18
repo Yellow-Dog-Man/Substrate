@@ -16,7 +16,10 @@ namespace Substrate
             new SchemaNodeList("Pos", TagType.TAG_DOUBLE, 3),
             new SchemaNodeList("Motion", TagType.TAG_DOUBLE, 3),
             new SchemaNodeList("Rotation", TagType.TAG_FLOAT, 2),
-            new SchemaNodeScaler("FallDistance", TagType.TAG_FLOAT),
+
+            new SchemaNodeScaler("FallDistance", TagType.TAG_FLOAT, maxVersion: Level.VERSION_1_25_5_DATA_VERSION),
+            new SchemaNodeScaler("fall_distance", TagType.TAG_DOUBLE, minVersion: Level.VERSION_1_25_5_DATA_VERSION),
+
             new SchemaNodeScaler("Fire", TagType.TAG_SHORT),
             new SchemaNodeScaler("Air", TagType.TAG_SHORT),
             new SchemaNodeScaler("OnGround", TagType.TAG_BYTE),
@@ -266,7 +269,9 @@ namespace Substrate
         /// <returns>Status indicating whether the tree was valid against the internal schema.</returns>
         public bool ValidateTree (TagNode tree)
         {
-            return new NbtVerifier(tree, _schema).Verify();
+            throw new NotImplementedException();
+
+            return new NbtVerifier(tree, _schema, 0).Verify();
         }
 
         #endregion
@@ -390,7 +395,9 @@ namespace Substrate
         /// <returns>Status indicating whether the tree was valid against the internal schema.</returns>
         public virtual new bool ValidateTree (TagNode tree)
         {
-            return new NbtVerifier(tree, _schema).Verify();
+            throw new NotImplementedException();
+
+            return new NbtVerifier(tree, _schema, 0).Verify();
         }
 
         #endregion

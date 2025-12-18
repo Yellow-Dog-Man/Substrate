@@ -116,7 +116,9 @@ namespace Substrate.ImportExport
                 tree = new NbtTree(nbtStream);
             }
 
-            NbtVerifier v = new NbtVerifier(tree.Root, _schema);
+            throw new NotImplementedException();
+
+            NbtVerifier v = new NbtVerifier(tree.Root, _schema, 0);
             if (!v.Verify()) {
                 return null;
             }

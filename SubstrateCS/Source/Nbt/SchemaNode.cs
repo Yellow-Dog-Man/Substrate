@@ -11,6 +11,8 @@ namespace Substrate.Nbt
     {
         private string _name;
         private SchemaOptions _options;
+        private int? _minDataVersion;
+        private int? _maxDataVersion;
 
         /// <summary>
         /// Gets the name of an expected NBT node.
@@ -28,6 +30,9 @@ namespace Substrate.Nbt
             get { return _options; }
         }
 
+        public int? MinDataVersion => _minDataVersion;
+        public int? MaxDataVersion => _maxDataVersion;
+
         /// <summary>
         /// Constructs a new <see cref="SchemaNode"/> representing a <see cref="TagNode"/> named <paramref name="name"/>.
         /// </summary>
@@ -42,10 +47,12 @@ namespace Substrate.Nbt
         /// </summary>
         /// <param name="name">The name of the corresponding <see cref="TagNode"/>.</param>
         /// <param name="options">One or more option flags modifying the processing of this node.</param>
-        protected SchemaNode (string name, SchemaOptions options)
+        protected SchemaNode (string name, SchemaOptions options, int? minDataVersion = null, int? maxDataVersion = null)
         {
             _name = name;
             _options = options;
+            _minDataVersion = minDataVersion;
+            _maxDataVersion = maxDataVersion;
         }
 
         /// <summary>

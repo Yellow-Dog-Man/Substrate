@@ -116,6 +116,7 @@ namespace Substrate.Nbt
     {
         private TagNode _root;
         private SchemaNode _schema;
+        private int? _dataVersion;
 
         /// <summary>
         /// An event that gets fired whenever an expected <see cref="TagNode"/> is not found.
@@ -137,10 +138,11 @@ namespace Substrate.Nbt
         /// </summary>
         /// <param name="root">A <see cref="TagNode"/> representing the root of an NBT tree.</param>
         /// <param name="schema">A <see cref="SchemaNode"/> representing the root of a schema definition for the NBT tree.</param>
-        public NbtVerifier (TagNode root, SchemaNode schema)
+        public NbtVerifier (TagNode root, SchemaNode schema, int? dataVersion = null)
         {
             _root = root;
             _schema = schema;
+            _dataVersion = dataVersion;
         }
 
         /// <summary>
@@ -154,6 +156,15 @@ namespace Substrate.Nbt
 
         private bool Verify (TagNode parent, TagNode tag, SchemaNode schema)
         {
+            if (_dataVersion == null && (schema.MinDataVersion != null || schema.MaxDataVersion != null))
+                throw new InvalidOperationException($"Schema defined version dependent nodes, but version has not been provided");
+
+            if (_dataVersion < schema.MinDataVersion)
+                return true;
+
+            if (_dataVersion > schema.MaxDataVersion)
+                return true;
+
             if (tag == null) {
                 return OnMissingTag(new TagEventArgs(schema.Name));
             }
@@ -368,7 +379,8 @@ namespace Substrate.Nbt
                     }
                 }
 
-                pass = Verify(tag, value, node) && pass;
+                if (!Verify(tag, value, node))
+                    pass = false;
             }
 
             foreach (KeyValuePair<string, TagNode> item in _scratch) {
